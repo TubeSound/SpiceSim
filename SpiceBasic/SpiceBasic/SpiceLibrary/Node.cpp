@@ -6,12 +6,11 @@ using namespace SpiceUtility;
 
 namespace SpiceLibrary {
 
-	Node::Node()
-	{
+	Node::Node(){
+		this->index = -1;
 	}
 
-	Node::~Node()
-	{
+	Node::~Node(){
 	}
 
 	bool Node::parse(std::string nodeText) {
@@ -19,7 +18,7 @@ namespace SpiceLibrary {
 		if (trimmed.length() == 0) {
 			return false;
 		}
-		this->name = trimmed;
+		this->name_ = trimmed;
 		return true;
 	}
 }

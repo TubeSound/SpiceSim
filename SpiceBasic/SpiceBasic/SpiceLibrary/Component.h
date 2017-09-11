@@ -1,5 +1,5 @@
-#ifndef _SPICE_MODEL_
-#define _SPICE_MODEL_
+#ifndef _SPICE_COMPONENT_
+#define _SPICE_COMPONENT_
 
 
 #include <string>
@@ -7,7 +7,7 @@
 
 namespace SpiceLibrary {
 
-	enum ModelType {
+	enum ComponentType {
 		resistance = 0,
 		capacitor = 1,
 		reactance = 2,
@@ -42,26 +42,24 @@ namespace SpiceLibrary {
 			}
 	};
 
-	class Model
-	{
+	class Component {
 
 	public:
 		int index;
-		ModelType type;
+		ComponentType type;
 		std::string identifier;
-		std::vector<std::string> prefixes;
+		std::vector<std::string> letters;
 
 	public:
-		Model();
-		~Model();
-		bool parse(std::string modelText);
+		Component();
+		~Component();
+		bool parse(std::string componentText);
 		Range elementSize();
 
 	private:
 		std::string name();
-		std::string prefix();
-		std::string prefix(int index);
-		bool whichType(std::string prefix);
+		std::string letter(int index);
+		bool whichType(std::string letter);
 	};
 
 }

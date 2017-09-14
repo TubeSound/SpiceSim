@@ -8,7 +8,8 @@
 namespace SpiceLibrary {
 
 	enum ComponentType {
-		resistance = 0,
+		undefined = -1,
+		resistor = 0,
 		capacitor = 1,
 		reactance = 2,
 		currentSource = 3,
@@ -48,7 +49,7 @@ namespace SpiceLibrary {
 		int index;
 		ComponentType type;
 		std::string identifier;
-		std::vector<std::string> letters;
+		
 
 	public:
 		Component();
@@ -56,10 +57,12 @@ namespace SpiceLibrary {
 		bool parse(std::string componentText);
 		Range elementSize();
 
-	private:
+		static ComponentType whichType(std::string str);
+
+	protected:
 		std::string name();
-		std::string letter(int index);
-		bool whichType(std::string letter);
+		virtual bool parseValue(std::vector<std::string> values);
+		
 	};
 
 }

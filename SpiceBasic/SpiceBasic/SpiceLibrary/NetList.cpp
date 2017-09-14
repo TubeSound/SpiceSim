@@ -19,169 +19,89 @@ namespace SpiceLibrary {
 	}
 
 	void NetList::init() {
-		this->netList.clear();
-		this->modelStack.clear();
 		this->nodeStack.clear();
+		this->resistorStack.clear();
+		this->currentSourceStack.clear();
 		Node gnd;
-		gnd.name = "0";
-		registNode(gnd);
-	}
-
-	bool NetList::parse(std::string netText) {
-		Net net;
-		if (net.parse(netText)) {
-			return registNet(net);
-		}
-		else {
-			return false;
-		}
+		gnd.parse("0");
+		appendNode(gnd);
 	}
 
 	bool NetList::makeMatrix() {
-		int nodeSize = this->nodeStack.size() - 1;	// without 0 node (Gnd)
-		if (nodeSize == 0) {
+		int matrixSize = this->nodeStack.size() - 1;	// without 0 node (Gnd)
+		if (matrixSize == 0) {
 			return false;
 		}
 
-		this->coefficient = Eigen::MatrixXd::Zero(nodeSize, nodeSize);
-		this->source = Eigen::VectorXd::Zero(nodeSize, 1);
-	
-		for (int index = 1; index < this->nodeStack.size(); index++) {
-			vector<Net> ins = inNodeNets(index);
-			vector<Net> outs = outNodeNets(index);
-			for (Net net : ins) {
-				Model model = net.model;
-				double val = net.value.value;
-				if (model.type == ModelType::currentSource) {
-					this->source(index - 1) = -val;
-				} else if (model.type == ModelType::resistance) {
-					if (val == 0.0) {
-						return false;
-					}
-					double conductance = 1.0 / net.value.value;
-					int outIndex = net.outNode.index;
-					if (outIndex > 0) { // outIndex == 0 means GND
-						this->coefficient(index - 1, outIndex - 1) -= conductance;
-					}
-					this->coefficient(index - 1, index - 1) += conductance;
-				}
-			}
+		this->coefficient = Eigen::MatrixXd::Zero(matrixSize, matrixSize);
+		this->source = Eigen::MatrixXXd::Zero(matrixSize, 1);
 
-			for (Net net : outs) {
-				Model model = net.model;
-				double val = net.value.value;
-				if (model.type == ModelType::currentSource) {
-					this->source(index - 1) = val;
-				}
-				else if (model.type == ModelType::resistance) {
-					if (val == 0.0) {
-						return false;
-					}
-					double conductance = 1.0 / net.value.value;
-					int inIndex = net.inNode.index;
-					if (inIndex > 0) {	// inIndex == 0 means GND
-						this->coefficient(index - 1, inIndex - 1) -= conductance;
-					}
-					this->coefficient(index - 1, index - 1) += conductance;
-				}
-			}	
+		for (Resisor r : this->resistorStack) {
+			int idx0 = r.nodes[0].index;
+			int idx1 = r.nodes[1].index;
+			if (idx0 > 0) {
+				this->coefficient(idx0, idx0) += r.conductance;
+			}
+			if (idx1 > 0) {
+				this->coefficient(idx1, idx1) += r.conductance;
+			}
+			if (idx0 > 0 && idx1 > 0) {
+				this->coefficient(idx0, idx1) -= r.conductance;
+				this->coefficient(idx1, idx0) -= r.conductance;
+			}
 		}
-		this->invCoeffcient = this->coefficient.colPivHouseholderQr();
+
+		for(CurrentSource cs : this->currentSourceStack) {
+			int idx0 = cs.nodes[0].index;
+			int idx1 = cs.nodes[1].index;
+			if (idx0 > 0) {
+				this->source(idx0, 0) -= cs.current.value;
+			}
+			if (idx1 > 0) {
+				this->source(idx1, 0) -= cs.current.value;
+			}
+		}
+
+		this->holder = this->coefficient.colPivHouseholderQr();
+		this->invCoeffcient = this->holder.inverse();
 	}
 	
 	Eigen::VectorXd NetList::solve(Eigen::VectorXd input) {
 		return this->invCoeffcient.solve(input);
 	}
 
-	bool NetList::registNet(Net& net) {
-		registModel(net.model);
-		registNode(net.inNode);
-		registNode(net.outNode);
-		net.index = this->netList.size();
-		this->netList.push_back(net);
+	bool NetList::appendResistor(Resistor& resistor) {
+		resistor.index = this->resitorStack.size();
+		this->resistorStack.push_back(resitor);
+		appenNodes(resistor.nodes);
 		return true;
 	}
 
-	bool NetList::registModel(Model& model) {
-		model.index = this->modelStack.size();
-		this->modelStack.push_back(model);
+	bool NetList::appendCurrentSource(CurrentSource& currentSource) {
+		currentSource.index = this->currentSourceStack.size();
+		this->currentSourceStack.push_back(currentSource);
+		appenNodes(currentSource.nodes);
 		return true;
 	}
 
-	bool NetList::registNode(Node& node) {
-		if (!searchNode(node)) {
+	bool NetList::appendNodes(Node nodes[2]) {
+		for (int i = 0; i < 2; i++) {
+			appendNode(nodes[i]);
+		}
+		return true;
+	}
+
+	bool NetList::appendNode(Node& node) {
+		if (!isNode(node)) {
 			node.index = this->nodeStack.size();
 			this->nodeStack.push_back(node);
 			return true;
-		}
-		else {
+		} else {
 			return false;
 		}
 	}
 
-	bool NetList::searchNet(Net& net) {
-		if (this->netList.size() == 0) {
-			return false;
-		}
-		bool found = false;
-		for (Net n : this->netList) {
-			if (n.index == net.index) {
-				net = n;
-				found = true;
-				break;
-			}
-		}
-		return found;
-	}
-
-	vector<Net> NetList::outNodeNets(int index) {
-		vector<Net> nets;
-		for (Net net : this->netList) {
-			if (net.outNode.index == index) {
-				nets.push_back(net);
-			}
-		}
-		return nets;
-	}
-
-	vector<Net> NetList::inNodeNets(int index) {
-		vector<Net> nets;
-		nets.clear();
-		for (Net net : this->netList) {
-			if (net.inNode.index == index) {
-				nets.push_back(net);
-			}
-		}
-		return nets;
-	}
-
-	bool NetList::aNet(Net& net, int inNodeIndex, int outNodeIndex) {
-		int count = 0;
-		for (Net n : this->netList) {
-			if (n.inNode.index == inNodeIndex && n.outNode.index == outNodeIndex) {
-				net = n;
-				count++;
-			}
-		}
-		return (count == 0);
-	}
-
-	bool NetList::searchModel(Model& model) {
-		if (this->modelStack.size() == 0) {
-			return false;
-		}
-		bool found = false;
-		for (Model m : this->modelStack) {
-			if (m.index == model.index) {
-				model = m;
-				found = true;
-				break;
-			}
-		}
-		return found;
-	}
-
-	bool NetList::searchNode(Node& node) {
+	bool NetList::isNode(Node& node) {
 		if (this->nodeStack.size() == 0) {
 			return false;
 		}

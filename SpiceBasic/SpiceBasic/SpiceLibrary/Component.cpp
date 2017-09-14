@@ -6,37 +6,47 @@ using namespace SpiceUtility;
 
 namespace SpiceLibrary {
 
+	const int letters_size = 6;
+	std::string letters[letters_size] = { "R", "C", "L", "I", "V", "?"};
+	
 	Component::Component() {
-		this->letters.clear();
-		for (int i = 0; i < ComponentType::length; i++) {
-			this->letters.push_back(letter(i));
-		}
 	}
 
 	Component::~Component() {
 	}
 
 	bool Component::parse(std::string componentText) {
-		if (componentText.length() <= 1) {
+		std::vector<std::string> values = splitWithSpace(componentText);
+		if (values.size() < 4) {
 			return false;
 		}
-		string letter = componentText.substr(0, 1);
+
+		string letter = values[0].substr(0, 1);
 		this->identifier = componentText.substr(1, componentText.length() - 1);
-		return whichType(letter);
+		this->type = whichType(letter);
+		
+		if (!parseValue(values)) {
+			return false;
+		}
+
+		return true;
 	}
 
-	bool Component::whichType(std::string letter) {
-		int i = 0;
-		bool found = false;
-		for (string s : this->letters) {
+	ComponentType Component::whichType(std::string text) {
+		ComponentType type = ComponentType::undefined;
+		if (text.length() < 1) {
+			return type;
+		}
+		std::string letter = text.substr(0, 1);
+		for (int i = 0; i < letters_size; i++) {
+			std::string s = letters[i];
 			if (toLower(s) == toLower(letter)) {
-				this->type = static_cast<ComponentType> (i);
-				found = true;
+				type = static_cast<ComponentType> (i);
 				break;
 			}
 			i++;
 		}
-		return found;
+		return type;
 	}
 
 	std::string Component::name() {

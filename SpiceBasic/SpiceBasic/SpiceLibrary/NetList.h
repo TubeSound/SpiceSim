@@ -5,7 +5,8 @@
 #include <vector>
 #include "Net.h"
 #include "Node.h"
-#include "Model.h"
+#include "Resitsor.h"
+#include "CurrentSource.h"
 #include <Eigen/Dense>
 #include <vector>
 
@@ -15,13 +16,14 @@ namespace SpiceLibrary {
 	public:
 		std::string title;
 		Eigen::MatrixXd coefficient;
-		Eigen::VectorXd source;
-		Eigen::ColPivHouseholderQR<Eigen::MatrixXd> invCoeffcient;
+		Eigen::MatrixXd source;
+		Eigen::MatrixXd invCoeffcient;
+		Eigen::ColPivHouseholderQR<Eigen::MatrixXd> holder;
 
 	private:
-		std::vector<Net> netList;
 		std::vector<Node> nodeStack;
-		std::vector<Model> modelStack;
+		std::vector<Resistor> resistorStack;
+		std::vector<CurrentSource> currentSourceStack
 
 	public:
 		NetList();
@@ -31,15 +33,12 @@ namespace SpiceLibrary {
 		bool makeMatrix();
 		Eigen::VectorXd solve(Eigen::VectorXd input);
 	private:
-		bool registModel(Model& model);
-		bool searchModel(Model& model);
-		bool registNode(Node& node);
-		bool searchNode(Node& node);
-		bool registNet(Net& net);
-		bool searchNet(Net& net);
-		std::vector<Net> outNodeNets(int index);
-		std::vector<Net> inNodeNets(int index);
-		bool aNet(Net& net, int inNodeIndex, int outNodeIndex);
+		bool appendResistor(Resistor& res);
+		bool appendCurrentSoiurce(CurrentSource& cs);
+		bool appendNodes(Node nodes[2]);
+		bool appenNode(Node& node);
+		bool isNode(Node& node);
+
 	};
 }
 
